@@ -27,6 +27,7 @@ function App() {
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 })
   const [contextMenuSource, setContextMenuSource] = useState<RSSSource | null>(null)
   const [newSource, setNewSource] = useState({ name: '', url: '' })
+  const [isInitialized, setIsInitialized] = useState(false)
 
   // 加载保存的源
   useEffect(() => {
@@ -34,12 +35,56 @@ function App() {
     if (savedSources) {
       setSources(JSON.parse(savedSources))
     }
+    setIsInitialized(true)
   }, [])
 
-  // 保存源到本地存储
+  // 保存源到本地存储（跳过初始化阶段）
   useEffect(() => {
-    localStorage.setItem('rss-sources', JSON.stringify(sources))
-  }, [sources])
+    if (isInitialized) {
+      localStorage.setItem('rss-sources', JSON.stringify(sources))
+    }
+  }, [sources, isInitialized])
+
+  /**
+ * 解析 RSS 2.0 文章列表
+ * @param {Document} xmlDoc - XML 文档对象
+ */
+function parseRssArticles(xmlDoc: Document): Article[] {
+  const items = xmlDoc.querySelectorAll('item');
+  return Array.from(items).map(item => ({
+    title: item.querySelector('title')?.textContent || '无标题',
+    link: item.querySelector('link')?.textContent || '',
+    // 优先使用 content:encoded，其次用 description
+    content: item.querySelector('content:encoded')?.textContent || 
+             item.querySelector('description')?.textContent || '',
+    pubDate: item.querySelector('pubDate')?.textContent || '',
+    author: item.querySelector('author')?.textContent || 
+            item.querySelector('dc:creator')?.textContent || '未知作者',
+    category: Array.from(item.querySelectorAll('category'))
+      .map(cat => cat.textContent)
+      .filter(Boolean)
+  }));
+}
+
+/**
+ * 解析 Atom 1.0 文章列表
+ * @param {Document} xmlDoc - XML 文档对象
+ */
+function parseAtomArticles(xmlDoc: Document): Article[] {
+  const entries = xmlDoc.querySelectorAll('entry');
+  return Array.from(entries).map(entry => ({
+    title: entry.querySelector('title')?.textContent || '无标题',
+    link: entry.querySelector('link[rel="alternate"]')?.getAttribute('href') || '',
+    content: entry.querySelector('content')?.textContent || 
+             entry.querySelector('summary')?.textContent || '',
+    pubDate: entry.querySelector('published')?.textContent || 
+             entry.querySelector('updated')?.textContent || '',
+    author: entry.querySelector('author name')?.textContent || '未知作者',
+    category: Array.from(entry.querySelectorAll('category'))
+      .map(cat => cat.getAttribute('term'))
+      .filter(Boolean)
+  }));
+}
 
   // 解析 RSS XML
   const parseRSS = (xmlText: string): Article[] => {
@@ -51,29 +96,20 @@ function App() {
     if (parseError.length > 0) {
       throw new Error('XML 解析失败')
     }
-    
-    // 获取所有 item 元素
-    const items = xmlDoc.getElementsByTagName('item')
-    const articles: Article[] = []
-    
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      const title = item.getElementsByTagName('title')[0]?.textContent || ''
-      const link = item.getElementsByTagName('link')[0]?.textContent || ''
-      const description = item.getElementsByTagName('description')[0]?.textContent || ''
-      const content = item.getElementsByTagName('content:encoded')[0]?.textContent || description
-      const pubDate = item.getElementsByTagName('pubDate')[0]?.textContent || ''
-      const author = item.getElementsByTagName('author')[0]?.textContent || 
-                   item.getElementsByTagName('dc:creator')[0]?.textContent || ''
-      
-      articles.push({
-        title,
-        link,
-        content,
-        pubDate,
-        author
-      })
+
+    // 区分 RSS 和 Atom 格式
+    const isRss = xmlDoc.querySelector('rss') !== null;
+    const isAtom = xmlDoc.querySelector('feed') !== null;
+
+    if (!isRss && !isAtom) {
+      throw new Error('不支持的 Feed 格式：请提供 RSS 2.0 或 Atom 1.0 格式');
     }
+    
+    const articles = isRss 
+    ? parseRssArticles(xmlDoc) 
+    : parseAtomArticles(xmlDoc)
+    
+
     
     return articles
   }
