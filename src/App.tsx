@@ -17,38 +17,10 @@ interface Article {
   author?: string
 }
 
-function App() {
-  const [sources, setSources] = useState<RSSSource[]>([])
-  const [selectedSource, setSelectedSource] = useState<RSSSource | null>(null)
-  const [articles, setArticles] = useState<Article[]>([])
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showContextMenu, setShowContextMenu] = useState(false)
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 })
-  const [contextMenuSource, setContextMenuSource] = useState<RSSSource | null>(null)
-  const [newSource, setNewSource] = useState({ name: '', url: '' })
-  const [isInitialized, setIsInitialized] = useState(false)
-
-  // 加载保存的源
-  useEffect(() => {
-    const savedSources = localStorage.getItem('rss-sources')
-    if (savedSources) {
-      setSources(JSON.parse(savedSources))
-    }
-    setIsInitialized(true)
-  }, [])
-
-  // 保存源到本地存储（跳过初始化阶段）
-  useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem('rss-sources', JSON.stringify(sources))
-    }
-  }, [sources, isInitialized])
-
-  /**
- * 解析 RSS 2.0 文章列表
- * @param {Document} xmlDoc - XML 文档对象
- */
+/**
+   * 解析 RSS 2.0 文章列表
+   * @param {Document} xmlDoc - XML 文档对象
+   */
 function parseRssArticles(xmlDoc: Document): Article[] {
   const items = xmlDoc.querySelectorAll('item');
   return Array.from(items).map(item => ({
@@ -56,7 +28,7 @@ function parseRssArticles(xmlDoc: Document): Article[] {
     link: item.querySelector('link')?.textContent || '',
     // 优先使用 content:encoded，其次用 description
     content: item.querySelector('content:encoded')?.textContent || 
-             item.querySelector('description')?.textContent || '',
+            item.querySelector('description')?.textContent || '',
     pubDate: item.querySelector('pubDate')?.textContent || '',
     author: item.querySelector('author')?.textContent || 
             item.querySelector('dc:creator')?.textContent || '未知作者',
@@ -76,9 +48,9 @@ function parseAtomArticles(xmlDoc: Document): Article[] {
     title: entry.querySelector('title')?.textContent || '无标题',
     link: entry.querySelector('link[rel="alternate"]')?.getAttribute('href') || '',
     content: entry.querySelector('content')?.textContent || 
-             entry.querySelector('summary')?.textContent || '',
+            entry.querySelector('summary')?.textContent || '',
     pubDate: entry.querySelector('published')?.textContent || 
-             entry.querySelector('updated')?.textContent || '',
+            entry.querySelector('updated')?.textContent || '',
     author: entry.querySelector('author name')?.textContent || '未知作者',
     category: Array.from(entry.querySelectorAll('category'))
       .map(cat => cat.getAttribute('term'))
@@ -86,33 +58,72 @@ function parseAtomArticles(xmlDoc: Document): Article[] {
   }));
 }
 
-  // 解析 RSS XML
-  const parseRSS = (xmlText: string): Article[] => {
-    const parser = new DOMParser()
-    const xmlDoc = parser.parseFromString(xmlText, 'text/xml')
-    
-    // 检查是否有解析错误
-    const parseError = xmlDoc.getElementsByTagName('parsererror')
-    if (parseError.length > 0) {
-      throw new Error('XML 解析失败')
-    }
-
-    // 区分 RSS 和 Atom 格式
-    const isRss = xmlDoc.querySelector('rss') !== null;
-    const isAtom = xmlDoc.querySelector('feed') !== null;
-
-    if (!isRss && !isAtom) {
-      throw new Error('不支持的 Feed 格式：请提供 RSS 2.0 或 Atom 1.0 格式');
-    }
-    
-    const articles = isRss 
-    ? parseRssArticles(xmlDoc) 
-    : parseAtomArticles(xmlDoc)
-    
-
-    
-    return articles
+// 解析 RSS XML
+const parseRSS = (xmlText: string): Article[] => {
+  const parser = new DOMParser()
+  const xmlDoc = parser.parseFromString(xmlText, 'text/xml')
+  
+  // 检查是否有解析错误
+  const parseError = xmlDoc.getElementsByTagName('parsererror')
+  if (parseError.length > 0) {
+    throw new Error('XML 解析失败')
   }
+
+  // 区分 RSS 和 Atom 格式
+  const isRss = xmlDoc.querySelector('rss') !== null;
+  const isAtom = xmlDoc.querySelector('feed') !== null;
+
+  if (!isRss && !isAtom) {
+    throw new Error('不支持的 Feed 格式：请提供 RSS 2.0 或 Atom 1.0 格式');
+  }
+  
+  const articles = isRss 
+  ? parseRssArticles(xmlDoc) 
+  : parseAtomArticles(xmlDoc)
+  
+
+  
+  return articles
+}
+
+function App() {
+  const [sources, setSources] = useState<RSSSource[]>([])
+  const [selectedSource, setSelectedSource] = useState<RSSSource | null>(null)
+  const [articles, setArticles] = useState<Article[]>([])
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showContextMenu, setShowContextMenu] = useState(false)
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 })
+  const [contextMenuSource, setContextMenuSource] = useState<RSSSource | null>(null)
+  const [newSource, setNewSource] = useState({ name: '', url: '' })
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // 加载保存的源
+  useEffect(() => {
+    const savedSources = localStorage.getItem('rss-sources')
+    if (savedSources) {
+      const sources = JSON.parse(savedSources)
+      setSources(sources)
+      const selectedSource = localStorage.getItem('selected-source')
+      if (selectedSource) {
+        const source = sources.find((s: { id: string }) => s.id == selectedSource)
+        if (source) {
+          setSelectedSource(source)
+          fetchArticles(source)
+        }
+      }
+    }
+    setIsInitialized(true)
+  }, [])
+
+  // 保存源到本地存储（跳过初始化阶段）
+  useEffect(() => {
+    if (isInitialized) {
+      localStorage.setItem('rss-sources', JSON.stringify(sources))
+    }
+  }, [sources, isInitialized])
+
+  
 
   // 获取文章
   const fetchArticles = async (source: RSSSource) => {
@@ -137,6 +148,7 @@ function parseAtomArticles(xmlDoc: Document): Article[] {
   // 选择源
   const handleSourceSelect = (source: RSSSource) => {
     setSelectedSource(source)
+    localStorage.setItem('selected-source', source.id)
     setSelectedArticle(null)
     fetchArticles(source)
   }
