@@ -195,17 +195,25 @@ function App() {
 
   return (
     <div className="app">
-      {/* 左侧源列表 */}
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <h2>RSS 源</h2>
+      {/* 顶部导航条 */}
+      <div className="navbar">
+        <div className="navbar-content">
+          {/* <h1 className="app-title">RSS 阅读器</h1> */}
           <button 
             className="add-button"
             onClick={() => setShowAddDialog(true)}
           >
-            <Plus size={20} />
+            <Plus size={12} />
           </button>
         </div>
+      </div>
+      
+      <div className="main-content">
+        {/* 左侧源列表 */}
+        <div className="sidebar">
+          <div className="sidebar-header">
+            <h2>RSS 源</h2>
+          </div>
         <div className="sources-list">
           {sources.map(source => (
             <div
@@ -322,6 +330,7 @@ function App() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

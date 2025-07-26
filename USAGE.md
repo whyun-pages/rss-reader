@@ -9,8 +9,8 @@
 ## 推荐的 RSS 源
 
 ### 科技新闻
-- **名称**: TechCrunch
-- **URL**: `https://feeds.feedburner.com/TechCrunch/`
+- **名称**: 白一梓博客
+- **URL**: `https://blog.whyun.com/atom.xml`
 
 - **名称**: The Verge
 - **URL**: `https://www.theverge.com/rss/index.xml`
